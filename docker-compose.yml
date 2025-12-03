@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - data-streaming
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - data-streaming
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: datastream
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - data-streaming
+
+  producer:
+    build: ./producer
+    depends_on:
+      - kafka
+    networks:
+      - data-streaming
+    command: python producer.py
+
+  consumer:
+    build: ./consumer
+    depends_on:
+      - kafka
+      - postgres
+    networks:
+      - data-streaming
+    command: python consumer.py
+
+  api:
+    build: ./api
+    depends_on:
+      - postgres
+    ports:
+      - "5000:5000"
+    networks:
+      - data-streaming
+    command: python app.py
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - data-streaming
+
+volumes:
+  postgres_data:
+
+networks:
+  data-streaming:
+    driver: bridge
