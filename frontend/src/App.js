@@ -5,9 +5,15 @@ function App() {
   const [data, setData] = useState([]);
 
   useEffect(() => {
+    const apiURL =
+      window.location.hostname === "localhost" ||
+      window.location.hostname.startsWith("192.")
+        ? "http://192.168.18.94:5000/data"   // AKSES DARI LAPTOP
+        : "http://api:5000/data";            // AKSES DARI DALAM DOCKER
+
     const fetchData = async () => {
       try {
-        const response = await fetch('http://api:5000/data');
+        const response = await fetch(apiURL);
         const result = await response.json();
         setData(result);
       } catch (error) {
@@ -32,7 +38,7 @@ function App() {
           </tr>
         </thead>
         <tbody>
-          {data.map((item) => (
+          {data.map(item => (
             <tr key={item.id}>
               <td>{item.id}</td>
               <td>{item.timestamp}</td>
